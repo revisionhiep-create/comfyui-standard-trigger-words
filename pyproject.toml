@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-standard-trigger-words"
-description = "Fixed redraw problem at startup, added 4 layers of protection"
-version = "1.0.2"
+description = "Interactive button-based trigger word node with 80+ SDXL/Illustrious presets. Click to toggle, right-click to edit, scroll to adjust strength."
+version = "1.0.1"
 license = {text = "MIT"}
 dependencies = []
 
@@ -10,5 +10,5 @@ Repository = "https://github.com/revisionhiep-create/comfyui-standard-trigger-wo
 
 [tool.comfy]
 PublisherId = "revybevy"
-DisplayName = "Scomfyui-standard-trigger-words"
+DisplayName = "comfyui-standard-trigger-words"
 Icon = ""
