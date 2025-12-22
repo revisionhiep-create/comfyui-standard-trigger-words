@@ -1,356 +1,358 @@
 /**
- * Standard Trigger Words Loader - Interactive Button Tags UI
- * Similar to Lora Manager's Trigger Word Toggle
+ * Standard Trigger Words Loader - Robust Sync & Multi-Category UI
  */
 
 import { app } from "../../scripts/app.js";
 
 // Embedded Presets
 const TRIGGER_WORD_PRESETS = {
-    "Quality": [
+    "Pos: Quality": [
         "masterpiece", "best quality", "very aesthetic", "absurdres", "high quality",
         "ultra high definition", "extremely high detail", "newest", "year 2024",
-        "year 2025", "highres", "8K", "HDR"
+        "year 2025", "highres", "8K", "HDR", "score_9", "score_8_up", "score_7_up"
     ],
-    "Lighting": [
+    "Pos: Lighting": [
         "volumetric lighting", "ambient occlusion", "dramatic lighting", "cinematic lighting",
         "rim light", "soft lighting", "studio lighting", "golden hour lighting",
         "natural lighting", "sunlight", "backlighting", "sharp focus", "glowing",
-        "luminescent background"
+        "luminescent background", "bioluminescence", "ray tracing", "reflection"
     ],
-    "Composition": [
+    "Pos: Composition": [
         "dynamic angle", "dynamic pose", "low-angle shot", "low angle", "looking at viewer",
         "from above", "from below", "upper body focus", "full body", "portrait",
         "close-up shot", "mid shot", "cowboy shot", "wide angle", "cinematic field of view",
-        "perfect composition", "rule of thirds"
+        "perfect composition", "rule of thirds", "symmetrical", "asymmetrical", "bird's eye view"
     ],
-    "Style": [
+    "Pos: Poses": [
+        "standing", "sitting", "lying", "squatting", "kneeling", "dynamic pose",
+        "fighting stance", "crossed arms", "hand on hip", "peace sign", "holding object",
+        "hands behind back", "stretching", "leaning", "jumping", "running", "crouching"
+    ],
+    "Pos: Expressions": [
+        "smile", "grin", "laughing", "angry", "sad", "crying", "surprised", "neutral",
+        "seductive", "wink", "tongue out", "blush", "pout", "closed eyes", "looking away",
+        "smirk", "embarrassed", "frown", "scared"
+    ],
+    "Pos: Style": [
         "anime illustration", "semi-realistic anime illustration", "digital painting",
         "cel shading", "clean linework", "manga style lineart", "detailed",
-        "highly detailed", "intricate details", "painterly"
+        "highly detailed", "intricate details", "painterly", "flat color",
+        "vibrant colors", "muted colors", "watercolor", "sketchy"
     ],
-    "Detail": [
+    "Pos: Detail": [
         "detailed eyes", "beautiful eye details", "detailed skin features", "detailed face features",
         "detailed hair features", "expressive eyes", "intricate iris", "detailed clothing",
-        "detailed background", "fine texture details"
+        "detailed background", "fine texture details", "floating hair", "flowing hair",
+        "textured", "highly detailed background"
     ],
-    "Aesthetic": [
+    "Pos: Aesthetic": [
         "beautiful", "amazing", "stunning", "gorgeous", "perfect", "flawless",
-        "eye-catching", "stylish", "elegant", "aesthetic"
+        "eye-catching", "stylish", "elegant", "aesthetic", "vivid colors",
+        "bright colors", "vibrant", "high contrast", "extreme contrast"
     ],
-    "Motion": [
-        "motion blur", "motion lines", "action pose", "dynamic action", "movement",
-        "speed lines", "flowing", "fluid motion"
+    "Pos: Motion": [
+        "dynamic movement", "motion lines", "foreshortening", "wind", "floating",
+        "flowing", "action pose", "speed lines"
+    ],
+    "Neg: Quality": [
+        "worst quality", "low quality", "normal quality", "jpeg artifacts", "lowres",
+        "blurry", "pixelated", "distorted", "low resolution"
+    ],
+    "Neg: Anatomy": [
+        "bad anatomy", "bad hands", "missing fingers", "extra digit", "fewer digits",
+        "extra limbs", "extra arms", "extra legs", "malformed limbs", "mutated hands",
+        "mutated", "mutilated", "disfigured", "long neck", "gross proportions",
+        "fused fingers", "too many fingers"
+    ],
+    "Neg: Technical": [
+        "watermark", "signature", "text", "error", "username", "cropped",
+        "out of frame", "border", "caption", "copyright"
+    ],
+    "Neg: Style": [
+        "sketch", "monochrome", "grayscale", "ugly", "duplicate", "morbid",
+        "mutation", "deformed", "censored", "unbalanced colors"
     ]
 };
 
-// Combine all categories for "All"
-TRIGGER_WORD_PRESETS["All"] = Object.values(TRIGGER_WORD_PRESETS).flat();
-
-function getPresetTags(category, defaultActive = true, defaultStrength = 1.0) {
-    if (category === "All") {
-        const allTags = [];
-        for (const [catName, words] of Object.entries(TRIGGER_WORD_PRESETS)) {
-            if (catName === "All") continue;
-            words.forEach(text => {
-                allTags.push({
-                    text: text,
-                    active: defaultActive,
-                    strength: defaultStrength,
-                    category: catName,
-                    highlighted: false
-                });
-            });
-        }
-        return allTags;
-    }
-    
-    const words = TRIGGER_WORD_PRESETS[category] || [];
-    return words.map(text => ({
-        text: text,
-        active: defaultActive,
-        strength: defaultStrength,
-        category: category,
-        highlighted: false
-    }));
-}
-
-// Wheel sensitivity cache
-let wheelSensitivityCache = null;
-let wheelSensitivityTime = 0;
+const ALL_CATEGORY_NAMES = Object.keys(TRIGGER_WORD_PRESETS);
 
 function getWheelSensitivity() {
-    const now = Date.now();
-    if (wheelSensitivityCache && (now - wheelSensitivityTime) < 5000) {
-        return wheelSensitivityCache;
-    }
-    
-    const setting = app.ui.settings.getSettingValue("AegisFlow.WheelScrollSpeed", 0.02);
-    wheelSensitivityCache = parseFloat(setting) || 0.02;
-    wheelSensitivityTime = now;
-    return wheelSensitivityCache;
+    return parseFloat(app.ui.settings.getSettingValue("AegisFlow.WheelScrollSpeed", 0.02)) || 0.02;
 }
 
 function createTagsWidget(node, name, opts = {}) {
-    // Create container for tags
-    const container = document.createElement("div");
-    container.className = "comfy-tags-container";
+    const mainContainer = document.createElement("div");
+    mainContainer.className = "standard-trigger-main-container";
     
-    Object.assign(container.style, {
-        display: "flex",
-        flexWrap: "wrap",
-        gap: "4px",
-        padding: "6px",
-        backgroundColor: "rgba(40, 44, 52, 0.6)",
-        borderRadius: "6px",
-        width: "100%",
-        boxSizing: "border-box",
-        overflow: "auto",
-        minHeight: "150px",
-        alignItems: "flex-start"
+    Object.assign(mainContainer.style, {
+        display: "flex", flexDirection: "column", gap: "10px", padding: "10px",
+        backgroundColor: "#1c1c1e", borderRadius: "10px", width: "100%",
+        boxSizing: "border-box", border: "1px solid #3a3a3c", color: "#ffffff",
+        flexGrow: "1"
     });
 
-    // Widget object
+    const header = document.createElement("div");
+    Object.assign(header.style, {
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        paddingBottom: "8px", borderBottom: "1px solid #3a3a3c", width: "100%"
+    });
+
+    const menuBtn = document.createElement("button");
+    menuBtn.innerHTML = "☰ Categories";
+    Object.assign(menuBtn.style, {
+        backgroundColor: "#3a3a3c", border: "none", color: "white", borderRadius: "6px", padding: "6px 10px", cursor: "pointer", fontSize: "12px", fontWeight: "bold"
+    });
+
+    const title = document.createElement("div");
+    title.textContent = "Trigger Words";
+    Object.assign(title.style, { fontSize: "13px", fontWeight: "bold", opacity: "0.8" });
+
+    const batchControls = document.createElement("div");
+    batchControls.style.display = "flex";
+    batchControls.style.gap = "4px";
+
+    const allOnBtn = document.createElement("button");
+    allOnBtn.textContent = "ON";
+    const allOffBtn = document.createElement("button");
+    allOffBtn.textContent = "OFF";
+    [allOnBtn, allOffBtn].forEach(btn => {
+        Object.assign(btn.style, {
+            backgroundColor: "#3a3a3c", border: "none", color: "white", borderRadius: "4px", padding: "4px 8px", fontSize: "10px", cursor: "pointer"
+        });
+    });
+
+    batchControls.appendChild(allOnBtn);
+    batchControls.appendChild(allOffBtn);
+    header.appendChild(menuBtn);
+    header.appendChild(title);
+    header.appendChild(batchControls);
+    mainContainer.appendChild(header);
+
+    const contentArea = document.createElement("div");
+    Object.assign(contentArea.style, {
+        display: "flex", flexDirection: "column", gap: "12px", maxHeight: "1200px", overflowY: "auto", paddingRight: "4px", scrollbarWidth: "thin", width: "100%", flexGrow: "1"
+    });
+    mainContainer.appendChild(contentArea);
+
     const widget = {
         type: "custom_tags",
         name: name,
-        value: opts.defaultVal || [],
-        options: opts,
-        draw: function(ctx, node, widgetWidth, y, widgetHeight) {
-            // Don't draw in canvas, we use DOM
-        },
-        computeSize: function(width) {
-            const tagsCount = this.value?.length || 0;
-            const TAG_HEIGHT = 26;
-            const TAGS_PER_ROW = 3;
-            const ROW_GAP = 2;
-            const PADDING = 12;
-            const rows = Math.max(1, Math.ceil(tagsCount / TAGS_PER_ROW));
-            const height = PADDING + (rows * TAG_HEIGHT) + ((rows - 1) * ROW_GAP);
-            return [width, Math.max(150, height)];
-        },
-        serializeValue: function() {
-            try {
-                if (!Array.isArray(this.value)) {
-                    return JSON.stringify([]);
-                }
-                return JSON.stringify(this.value);
-            } catch (error) {
-                console.error("StandardTriggerWords: Error serializing tags:", error);
-                return JSON.stringify([]);
+        _value: { tags: [], activeCategories: ["Pos: Quality", "Pos: Composition"] },
+        draw: function(ctx, node, widgetWidth, y, widgetHeight) {},
+        computeSize: function(width) { return [width, Math.max(400, node.size[1] - 150)]; },
+        serializeValue: function() { return JSON.stringify(this.value); },
+        get value() { return this._value; },
+        set value(v) { 
+            if (Array.isArray(v)) {
+                this._value.tags = v;
+            } else if (v && typeof v === 'object') {
+                this._value = v;
             }
-        },
-        mouse: function(event, pos, node) {
-            return false; // Let DOM handle events
+            renderAll(); 
+            const modWidget = node.widgets.find(w => w.name === "modify_tags");
+            if (modWidget) {
+                const json = JSON.stringify(this._value);
+                if (modWidget.value !== json) {
+                    modWidget.value = json;
+                    if (modWidget.callback) modWidget.callback(json);
+                }
+            }
         }
     };
 
-    // Function to render tags
-    const renderTags = (tagsData) => {
-        // Clear existing tags
-        while (container.firstChild) {
-            container.removeChild(container.firstChild);
-        }
+    menuBtn.onclick = (e) => {
+        e.stopPropagation();
+        const rect = menuBtn.getBoundingClientRect();
+        const menu = document.createElement("div");
+        Object.assign(menu.style, {
+            position: "fixed", top: `${rect.bottom + 5}px`, left: `${rect.left}px`,
+            backgroundColor: "#2c2c2e", border: "1px solid #3a3a3c", borderRadius: "8px",
+            boxShadow: "0 8px 16px rgba(0,0,0,0.4)", zIndex: "1000", padding: "6px", minWidth: "160px"
+        });
 
-        if (!Array.isArray(tagsData) || tagsData.length === 0) {
-            const emptyMessage = document.createElement("div");
-            emptyMessage.textContent = "No trigger words loaded";
-            Object.assign(emptyMessage.style, {
-                textAlign: "center",
-                padding: "20px 0",
-                color: "rgba(226, 232, 240, 0.8)",
-                fontStyle: "italic",
-                userSelect: "none",
-                width: "100%"
+        ALL_CATEGORY_NAMES.forEach(cat => {
+            const item = document.createElement("div");
+            const isActive = widget.value.activeCategories.includes(cat);
+            item.innerHTML = `<span style="width:16px;display:inline-block">${isActive ? "✓" : ""}</span> ${cat}`;
+            Object.assign(item.style, {
+                padding: "8px 10px", cursor: "pointer", borderRadius: "4px", fontSize: "12px",
+                color: cat.startsWith("Neg") ? "#ff453a" : (cat.startsWith("Pos") ? "#30d158" : "#ffffff")
             });
-            container.appendChild(emptyMessage);
-            return;
-        }
-
-        const showStrength = widget.allowStrengthAdjustment || false;
-
-        tagsData.forEach((tagData, index) => {
-            const { text, active, strength } = tagData;
-            const tagEl = document.createElement("div");
-            tagEl.className = "comfy-tag";
-
-            // Text span
-            const textSpan = document.createElement("span");
-            textSpan.className = "comfy-tag-text";
-            textSpan.textContent = text;
-            Object.assign(textSpan.style, {
-                display: "inline-block",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                minWidth: "0",
-                flexGrow: "1",
-            });
-            tagEl.appendChild(textSpan);
-
-            // Strength badge
-            let strengthBadge = null;
-            if (showStrength) {
-                strengthBadge = document.createElement("span");
-                strengthBadge.className = "comfy-tag-strength";
-                strengthBadge.textContent = strength ? strength.toFixed(2) : "1.00";
-                Object.assign(strengthBadge.style, {
-                    fontSize: "11px",
-                    fontWeight: "600",
-                    padding: "1px 6px",
-                    borderRadius: "999px",
-                    backgroundColor: "rgba(255,255,255,0.08)",
-                    color: "rgba(255,255,255,0.95)",
-                    border: "1px solid rgba(255,255,255,0.25)",
-                    minWidth: "34px",
-                    textAlign: "center",
-                    opacity: active ? "1" : "0.3",
-                    transition: "opacity 0.2s ease",
-                });
-                tagEl.appendChild(strengthBadge);
-            }
-
-            // Style the tag
-            updateTagStyle(tagEl, active, strength);
-
-            // Click to toggle
-            tagEl.addEventListener("click", (e) => {
-                e.stopPropagation();
-                
-                const updatedTags = [...widget.value];
-                updatedTags[index].active = !updatedTags[index].active;
-                updateTagStyle(tagEl, updatedTags[index].active, updatedTags[index].strength);
-                
-                if (strengthBadge) {
-                    strengthBadge.style.opacity = updatedTags[index].active ? "1" : "0.3";
+            item.onmouseover = () => item.style.backgroundColor = "rgba(255,255,255,0.05)";
+            item.onmouseout = () => item.style.backgroundColor = "transparent";
+            item.onclick = (ev) => {
+                ev.stopPropagation();
+                const newValue = { ...widget.value };
+                if (isActive) {
+                    newValue.activeCategories = newValue.activeCategories.filter(c => c !== cat);
+                } else {
+                    newValue.activeCategories.push(cat);
+                    (TRIGGER_WORD_PRESETS[cat] || []).forEach(text => {
+                        if (!newValue.tags.find(t => t.text === text && t.category === cat)) {
+                            // Default all new words to OFF
+                            newValue.tags.push({ text, active: false, strength: 1.0, category: cat });
+                        }
+                    });
                 }
-                
-                widget.value = updatedTags;
-                node.setDirtyCanvas(true, false);
-            });
+                widget.value = newValue;
+                if (document.body.contains(menu)) document.body.removeChild(menu);
+            };
+            menu.appendChild(item);
+        });
 
-            // Right-click to edit
-            tagEl.addEventListener("contextmenu", (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                const newText = prompt("Edit trigger word:", text);
-                if (newText && newText.trim() !== "") {
-                    const updatedTags = [...widget.value];
-                    updatedTags[index].text = newText.trim();
-                    textSpan.textContent = newText.trim();
-                    widget.value = updatedTags;
+        const closeMenu = (ev) => { if (document.body.contains(menu) && !menu.contains(ev.target)) { document.body.removeChild(menu); window.removeEventListener("click", closeMenu); } };
+        setTimeout(() => window.addEventListener("click", closeMenu), 0);
+        document.body.appendChild(menu);
+    };
+
+    allOnBtn.onclick = () => { 
+        widget.value = { ...widget.value, tags: widget.value.tags.map(t => ({...t, active: true})) }; 
+        node.setDirtyCanvas(true, false); 
+    };
+    allOffBtn.onclick = () => { 
+        widget.value = { ...widget.value, tags: widget.value.tags.map(t => ({...t, active: false})) }; 
+        node.setDirtyCanvas(true, false); 
+    };
+
+    const renderAll = () => {
+        while (contentArea.firstChild) contentArea.removeChild(contentArea.firstChild);
+
+        widget.value.activeCategories.forEach(catName => {
+            const section = document.createElement("div");
+            Object.assign(section.style, { display: "flex", flexDirection: "column", gap: "6px", width: "100%" });
+
+            const secHeader = document.createElement("div");
+            Object.assign(secHeader.style, { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px", width: "100%" });
+            const secTitle = document.createElement("div");
+            secTitle.textContent = catName;
+            Object.assign(secTitle.style, { fontSize: "11px", fontWeight: "bold", color: catName.startsWith("Neg") ? "#ff453a" : "#30d158", opacity: "0.8" });
+            
+            const addRow = document.createElement("div");
+            Object.assign(addRow.style, { display: "flex", gap: "4px", flexGrow: "1", marginLeft: "10px" });
+            
+            const addInput = document.createElement("input");
+            addInput.placeholder = "Add...";
+            Object.assign(addInput.style, {
+                backgroundColor: "#2c2c2e", border: "1px solid #3a3a3c", color: "white",
+                borderRadius: "4px", padding: "2px 6px", fontSize: "10px", flexGrow: "1", outline: "none"
+            });
+            
+            const addBtn = document.createElement("button");
+            addBtn.innerHTML = "+";
+            Object.assign(addBtn.style, {
+                backgroundColor: "#3a3a3c", border: "none", color: "white", borderRadius: "4px",
+                padding: "2px 8px", cursor: "pointer", fontSize: "12px"
+            });
+            
+            const performAdd = () => {
+                const text = addInput.value.trim();
+                if (text) {
+                    const newValue = { ...widget.value };
+                    newValue.tags = [...newValue.tags, { text, active: false, strength: 1.0, category: catName }];
+                    widget.value = newValue;
+                    addInput.value = "";
                     node.setDirtyCanvas(true, false);
                 }
+            };
+            addBtn.onclick = (e) => { e.stopPropagation(); performAdd(); };
+            addInput.onkeydown = (e) => { if (e.key === "Enter") { e.stopPropagation(); performAdd(); } };
+
+            addRow.appendChild(addInput);
+            addRow.appendChild(addBtn);
+            secHeader.appendChild(secTitle);
+            secHeader.appendChild(addRow);
+            section.appendChild(secHeader);
+
+            const grid = document.createElement("div");
+            Object.assign(grid.style, { 
+                display: "grid", 
+                gridTemplateColumns: "repeat(auto-fill, minmax(calc(50% - 6px), 1fr))", 
+                gap: "6px", 
+                width: "100%" 
             });
 
-            // Scroll to adjust strength
-            if (showStrength) {
-                tagEl.addEventListener("wheel", (e) => {
-                    e.preventDefault();
+            const tagsInCat = widget.value.tags.filter(t => t.category === catName);
+            tagsInCat.forEach(tagData => {
+                const item = document.createElement("div");
+                Object.assign(item.style, {
+                    display: "flex", alignItems: "center", gap: "6px", padding: "6px 8px",
+                    backgroundColor: "#2c2c2e", borderRadius: "6px", border: "1px solid #3a3a3c", minWidth: "0", width: "100%", boxSizing: "border-box"
+                });
+
+                const toggle = document.createElement("div");
+                Object.assign(toggle.style, {
+                    width: "28px", height: "16px",
+                    backgroundColor: tagData.active ? (catName.startsWith("Neg") ? "#ff453a" : "#30d158") : "#48484a",
+                    borderRadius: "10px", position: "relative", cursor: "pointer", transition: "0.2s", flexShrink: "0"
+                });
+                const knob = document.createElement("div");
+                Object.assign(knob.style, { width: "12px", height: "12px", backgroundColor: "white", borderRadius: "50%", position: "absolute", top: "2px", left: tagData.active ? "14px" : "2px", transition: "0.2s" });
+                toggle.appendChild(knob);
+
+                const label = document.createElement("span");
+                label.textContent = tagData.text;
+                Object.assign(label.style, { fontSize: "11px", color: tagData.active ? "#ffffff" : "#8e8e93", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: "pointer", flexGrow: "1", minWidth: "0" });
+
+                const handleToggle = (e) => { 
+                    e.stopPropagation(); 
+                    widget.value = { ...widget.value, tags: widget.value.tags.map(t => t === tagData ? {...t, active: !t.active} : t) };
+                    node.setDirtyCanvas(true, false); 
+                };
+                toggle.onclick = handleToggle;
+                label.onclick = handleToggle;
+
+                label.ondblclick = (e) => {
                     e.stopPropagation();
-                    
-                    const updatedTags = [...widget.value];
-                    let currentStrength = updatedTags[index].strength || 1.0;
-                    const wheelSensitivity = getWheelSensitivity();
-                    
-                    if (e.deltaY < 0) {
-                        currentStrength += wheelSensitivity;
-                    } else {
-                        currentStrength -= wheelSensitivity;
-                    }
-                    
-                    currentStrength = Math.max(0, Math.min(2.0, currentStrength));
-                    updatedTags[index].strength = currentStrength;
-                    
-                    if (strengthBadge) {
-                        strengthBadge.textContent = currentStrength.toFixed(2);
-                    }
-                    
-                    widget.value = updatedTags;
+                    const input = document.createElement("input");
+                    input.value = tagData.text;
+                    Object.assign(input.style, {
+                        width: "100%", fontSize: "11px", backgroundColor: "#1c1c1e", color: "white", border: "none", outline: "none"
+                    });
+                    const saveEdit = () => {
+                        if (input.value.trim() && input.value.trim() !== tagData.text) {
+                            widget.value = { ...widget.value, tags: widget.value.tags.map(t => t === tagData ? {...t, text: input.value.trim()} : t) };
+                        } else { renderAll(); }
+                    };
+                    input.onblur = saveEdit;
+                    input.onkeydown = (ev) => { if (ev.key === "Enter") saveEdit(); };
+                    label.textContent = "";
+                    label.appendChild(input);
+                    input.focus();
+                };
+
+                const delBtn = document.createElement("div");
+                delBtn.innerHTML = "×";
+                Object.assign(delBtn.style, { color: "#ff453a", cursor: "pointer", padding: "0 4px", fontSize: "14px", fontWeight: "bold", opacity: "0.4" });
+                delBtn.onmouseover = () => delBtn.style.opacity = "1";
+                delBtn.onmouseout = () => delBtn.style.opacity = "0.4";
+                delBtn.onclick = (e) => { 
+                    e.stopPropagation(); 
+                    widget.value = { ...widget.value, tags: widget.value.tags.filter(t => t !== tagData) };
+                };
+
+                item.appendChild(toggle);
+                item.appendChild(label);
+                item.appendChild(delBtn);
+                grid.appendChild(item);
+
+                item.addEventListener("wheel", (e) => {
+                    e.preventDefault(); e.stopPropagation();
+                    const sens = getWheelSensitivity();
+                    widget.value = { ...widget.value, tags: widget.value.tags.map(t => t === tagData ? {...t, strength: Math.max(0, Math.min(2, (t.strength || 1) + (e.deltaY < 0 ? sens : -sens)))} : t) };
                     node.setDirtyCanvas(true, false);
                 });
-            }
+            });
 
-            container.appendChild(tagEl);
+            section.appendChild(grid);
+            contentArea.appendChild(section);
         });
     };
 
-    // Function to update tag style
-    function updateTagStyle(tagEl, active, strength) {
-        const baseStyles = {
-            padding: "3px 10px",
-            borderRadius: "6px",
-            maxWidth: "200px",
-            fontSize: "13px",
-            cursor: "pointer",
-            transition: "all 0.2s ease",
-            border: "1px solid transparent",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "6px",
-            boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
-            margin: "1px",
-            userSelect: "none",
-            height: "22px",
-            lineHeight: "16px",
-        };
-
-        const activeStyles = active ? {
-            backgroundColor: "rgba(59, 130, 246, 0.85)",
-            color: "#ffffff",
-            borderColor: "rgba(96, 165, 250, 0.8)",
-        } : {
-            backgroundColor: "rgba(100, 116, 139, 0.3)",
-            color: "rgba(203, 213, 225, 0.6)",
-            borderColor: "rgba(148, 163, 184, 0.4)",
-        };
-
-        Object.assign(tagEl.style, { ...baseStyles, ...activeStyles });
-    }
-
-    // Store initial value
-    widget._value = opts.defaultVal || [];
-    
-    // Expose renderTags for external access
-    widget.renderTags = renderTags;
-
-    // Watch for value changes
-    Object.defineProperty(widget, 'value', {
-        get() {
-            return widget._value || [];
-        },
-        set(newValue) {
-            widget._value = newValue;
-            renderTags(newValue);
-        }
+    widget.element = mainContainer;
+    node.addDOMWidget(name, "custom_tags", mainContainer, {
+        getValue() { return widget.value; },
+        setValue(v) { widget.value = v; }
     });
-
-    // Add DOM widget to node
-    widget.element = container;
-    const domWidget = node.addDOMWidget(name, "custom_tags", container, {
-        getValue() {
-            return widget.value;
-        },
-        setValue(v) {
-            widget.value = v;
-        }
-    });
-
-    // Initial render after DOM widget is added - with error handling
-    try {
-        renderTags(widget._value);
-        // Force canvas redraw to ensure buttons appear
-        setTimeout(() => {
-            if (node && node.setDirtyCanvas) {
-                node.setDirtyCanvas(true, true);
-            }
-        }, 100);
-    } catch (e) {
-        console.error("Failed to render initial tags:", e);
-        widget._value = [];
-        renderTags([]);
-    }
 
     return widget;
 }
@@ -358,200 +360,78 @@ function createTagsWidget(node, name, opts = {}) {
 app.registerExtension({
     name: "StandardTriggerWordsLoader",
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
-        console.log("StandardTriggerWordsLoader: Extension registered, checking node...", nodeData.name);
         if (nodeData.name === "StandardTriggerWordsLoader") {
-            console.log("StandardTriggerWordsLoader: Found matching node, setting up...");
             const onNodeCreated = nodeType.prototype.onNodeCreated;
-
             nodeType.prototype.onNodeCreated = function() {
-                console.log("StandardTriggerWordsLoader: onNodeCreated called");
-                const result = onNodeCreated?.apply(this, arguments);
+                const r = onNodeCreated?.apply(this, arguments);
                 const node = this;
-                console.log("StandardTriggerWordsLoader: Node widgets:", node.widgets.map(w => w.name));
 
-                // Find or create hidden widget for storing tag data
                 let modifyTagsWidget = node.widgets.find(w => w.name === "modify_tags");
                 if (!modifyTagsWidget) {
                     modifyTagsWidget = node.addWidget("text", "modify_tags", "", () => {});
                     modifyTagsWidget.type = "hidden";
                 }
-                // Ensure the widget is always hidden and has the correct serialization options
-                modifyTagsWidget.serializeValue = function() {
-                    return this.value || "";
-                };
+                
+                modifyTagsWidget.serializeValue = function() { return this.value || ""; };
 
-                // Get other widgets
-                const allowStrengthWidget = node.widgets.find(w => w.name === "allow_strength_adjustment");
-                const categoryWidget = node.widgets.find(w => w.name === "preset_category");
-                const defaultActiveWidget = node.widgets.find(w => w.name === "default_active");
-                
-                // Create tags widget
-                const tagsWidget = createTagsWidget(node, "trigger_words_display", {
-                    defaultVal: []
-                });
-                
-                // Link tags widget to hidden widget for serialization
-                const originalValueDescriptor = Object.getOwnPropertyDescriptor(tagsWidget, 'value');
-                const originalSetter = originalValueDescriptor.set;
-                const originalGetter = originalValueDescriptor.get;
-                
-                Object.defineProperty(tagsWidget, 'value', {
-                    get() {
-                        return originalGetter.call(tagsWidget);
-                    },
-                    set(newValue) {
-                        // Call original setter (which handles rendering)
-                        originalSetter.call(tagsWidget, newValue);
-                        // Also update hidden widget for serialization
-                        if (modifyTagsWidget) {
-                            const serialized = JSON.stringify(newValue);
-                            if (modifyTagsWidget.value !== serialized) {
-                                modifyTagsWidget.value = serialized;
+                const tagsWidget = createTagsWidget(node, "trigger_words_display", { defaultVal: [] });
+
+                const toHide = ["preset_category", "allow_strength_adjustment", "modify_tags"];
+                const applyHiding = () => {
+                    node.widgets.forEach(w => {
+                        if (toHide.includes(w.name)) {
+                            w.type = "hidden";
+                            if (!w.options) w.options = {};
+                            w.options.visible = false;
+                            w.hidden = true;
+                            if (w.element) {
+                                w.element.style.display = "none";
+                                w.element.style.height = "0px";
+                                w.element.style.margin = "0px";
+                                w.element.style.padding = "0px";
                             }
                         }
-                    }
-                });
+                    });
+                };
                 
-                // CRITICAL: Also link hidden widget changes back to tags widget
-                // This handles cases where ComfyUI populates the hidden widget after initialization
+                applyHiding();
+                setTimeout(applyHiding, 100);
+                setTimeout(applyHiding, 500);
+
                 let lastKnownValue = modifyTagsWidget.value;
                 const updateFromHidden = () => {
                     if (modifyTagsWidget.value && modifyTagsWidget.value !== lastKnownValue) {
                         try {
-                            const tags = JSON.parse(modifyTagsWidget.value);
-                            if (Array.isArray(tags)) {
-                                lastKnownValue = modifyTagsWidget.value;
-                                tagsWidget.value = tags;
-                            }
+                            const data = JSON.parse(modifyTagsWidget.value);
+                            lastKnownValue = modifyTagsWidget.value;
+                            tagsWidget.value = data;
                         } catch (e) {
-                            console.error("StandardTriggerWords: Failed to sync from hidden widget:", e);
+                            console.error("StandardTriggerWords: Sync error", e);
                         }
                     }
                 };
-                
-                // Set up an interval or a proxy to watch the hidden widget
-                // ComfyUI doesn't always trigger callbacks for internal value sets
+
                 const syncTimer = setInterval(() => {
-                    if (!node.graph) { // Node was deleted
-                        clearInterval(syncTimer);
-                        return;
-                    }
+                    if (!node.graph) { clearInterval(syncTimer); return; }
                     updateFromHidden();
                 }, 500);
 
-                // Link strength setting to widget
-                tagsWidget.allowStrengthAdjustment = allowStrengthWidget?.value || false;
-                
-                if (allowStrengthWidget) {
-                    const originalCallback = allowStrengthWidget.callback;
-                    allowStrengthWidget.callback = function() {
-                        tagsWidget.allowStrengthAdjustment = this.value;
-                        if (originalCallback) {
-                            originalCallback.apply(this, arguments);
-                        }
-                    };
+                if (modifyTagsWidget.value) {
+                    updateFromHidden();
+                } else {
+                    const initialTags = [];
+                    // Default all initial words to OFF
+                    ["Pos: Quality", "Pos: Composition"].forEach(cat => {
+                        (TRIGGER_WORD_PRESETS[cat] || []).forEach(text => {
+                            initialTags.push({ text, active: false, strength: 1.0, category: cat });
+                        });
+                    });
+                    tagsWidget.value = { tags: initialTags, activeCategories: ["Pos: Quality", "Pos: Composition"] };
                 }
 
-                // Store node reference in tagsWidget for forced redraws
-                tagsWidget._node = node;
-                
-                // Load presets when category changes
-                if (categoryWidget) {
-                    const originalCallback = categoryWidget.callback;
-                    categoryWidget.callback = function() {
-                        const category = this.value;
-                        const defaultActive = defaultActiveWidget?.value ?? true;
-                        loadPresetForCategory(category, defaultActive, tagsWidget);
-                        
-                        if (originalCallback) {
-                            originalCallback.apply(this, arguments);
-                        }
-                    };
-                    
-                    // Initial load - check if we have saved data
-                    if (modifyTagsWidget.value && modifyTagsWidget.value !== "") {
-                        try {
-                            const savedTags = JSON.parse(modifyTagsWidget.value);
-                            if (Array.isArray(savedTags) && savedTags.length > 0) {
-                                tagsWidget.value = savedTags;
-                                // Force redraw after loading saved data
-                                setTimeout(() => node.setDirtyCanvas(true, true), 50);
-                            } else {
-                                throw new Error("Invalid saved tags format");
-                            }
-                        } catch (e) {
-                            console.error("Failed to parse saved tags:", e, "Value:", modifyTagsWidget.value);
-                            // Load default preset
-                            const initialCategory = categoryWidget.value || "Quality";
-                            const initialDefaultActive = defaultActiveWidget?.value ?? true;
-                            loadPresetForCategory(initialCategory, initialDefaultActive, tagsWidget);
-                        }
-                    } else {
-                        // Load default preset
-                        const initialCategory = categoryWidget.value || "Quality";
-                        const initialDefaultActive = defaultActiveWidget?.value ?? true;
-                        loadPresetForCategory(initialCategory, initialDefaultActive, tagsWidget);
-                    }
-                }
-
-                // Add batch operation buttons
-                node.addWidget("button", "Toggle All ON", null, () => {
-                    const updatedTags = tagsWidget.value.map(tag => ({ ...tag, active: true }));
-                    tagsWidget.value = updatedTags;
-                    node.setDirtyCanvas(true, false);
-                });
-
-                node.addWidget("button", "Toggle All OFF", null, () => {
-                    const updatedTags = tagsWidget.value.map(tag => ({ ...tag, active: false }));
-                    tagsWidget.value = updatedTags;
-                    node.setDirtyCanvas(true, false);
-                });
-
-                // Handle state restoration when loading workflows
-                const onConfigure = node.onConfigure;
-                node.onConfigure = function() {
-                    if (onConfigure) onConfigure.apply(this, arguments);
-                    if (modifyTagsWidget.value) {
-                        try {
-                            const tags = JSON.parse(modifyTagsWidget.value);
-                            if (Array.isArray(tags) && tags.length > 0) {
-                                tagsWidget.value = tags;
-                            }
-                        } catch (e) {}
-                    }
-                };
-
-                // Set default node size on first creation
-                if (!node.size || node.size[0] < 400) {
-                    node.setSize([750, 550]);
-                }
-
-                return result;
+                node.setSize([750, 700]);
+                return r;
             };
         }
     }
 });
-
-// Helper to load presets
-function loadPresetForCategory(category, defaultActive, tagsWidget) {
-    try {
-        const tags = getPresetTags(category, defaultActive, 1.0);
-        console.log(`Loading preset ${category} with ${tags.length} tags`);
-        
-        if (!tags || tags.length === 0) {
-            console.warn("No tags loaded for category:", category);
-            tagsWidget.value = [];
-            return;
-        }
-        
-        tagsWidget.value = tags;
-        
-        // Force canvas redraw after loading to ensure buttons appear
-        if (tagsWidget._node && tagsWidget._node.setDirtyCanvas) {
-            tagsWidget._node.setDirtyCanvas(true, true);
-        }
-    } catch (e) {
-        console.error("Failed to load preset:", e);
-        tagsWidget.value = [];
-    }
-}

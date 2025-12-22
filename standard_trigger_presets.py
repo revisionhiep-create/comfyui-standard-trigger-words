@@ -1,7 +1,9 @@
 """
-Preset trigger words for SDXL Illustrious models.
+Preset trigger words for SDXL Illustrious/Pony models.
 Organized by category for the Standard Trigger Words Loader node.
 """
+
+# --- POSITIVE TAGS ---
 
 # Quality tags - foundational tags that improve overall image quality
 QUALITY_TAGS = [
@@ -18,6 +20,9 @@ QUALITY_TAGS = [
     "highres",
     "8K",
     "HDR",
+    "score_9",
+    "score_8_up",
+    "score_7_up",
 ]
 
 # Lighting tags - control lighting and atmosphere
@@ -36,6 +41,9 @@ LIGHTING_TAGS = [
     "sharp focus",
     "glowing",
     "luminescent background",
+    "bioluminescence",
+    "ray tracing",
+    "reflection",
 ]
 
 # Composition and camera tags
@@ -57,6 +65,9 @@ COMPOSITION_TAGS = [
     "cinematic field of view",
     "perfect composition",
     "rule of thirds",
+    "symmetrical",
+    "asymmetrical",
+    "bird's eye view",
 ]
 
 # Style and technique tags
@@ -71,6 +82,11 @@ STYLE_TAGS = [
     "highly detailed",
     "intricate details",
     "painterly",
+    "flat color",
+    "vibrant colors",
+    "muted colors",
+    "watercolor",
+    "sketchy",
 ]
 
 # Detail enhancement tags
@@ -84,6 +100,8 @@ DETAIL_TAGS = [
     "excellent depth of field",
     "reflections",
     "glossy",
+    "textured",
+    "highly detailed background",
 ]
 
 # Aesthetic quality modifiers
@@ -99,6 +117,8 @@ AESTHETIC_TAGS = [
     "atmospheric",
     "depth of field",
     "atmospheric perspective",
+    "elegant",
+    "stylish",
 ]
 
 # Motion and dynamic elements
@@ -109,17 +129,133 @@ MOTION_TAGS = [
     "wind",
     "floating",
     "flowing",
+    "action pose",
+    "speed lines",
+]
+
+# Poses - character stances and actions
+POSES_TAGS = [
+    "standing",
+    "sitting",
+    "lying",
+    "squatting",
+    "kneeling",
+    "dynamic pose",
+    "fighting stance",
+    "crossed arms",
+    "hand on hip",
+    "peace sign",
+    "holding object",
+    "hands behind back",
+    "stretching",
+    "leaning",
+    "jumping",
+    "running",
+    "crouching",
+]
+
+# Expressions - facial expressions and emotions
+EXPRESSIONS_TAGS = [
+    "smile",
+    "grin",
+    "laughing",
+    "angry",
+    "sad",
+    "crying",
+    "surprised",
+    "neutral",
+    "seductive",
+    "wink",
+    "tongue out",
+    "blush",
+    "pout",
+    "closed eyes",
+    "looking away",
+    "smirk",
+    "embarrassed",
+    "frown",
+    "scared",
+]
+
+# --- NEGATIVE TAGS ---
+
+# General Quality Negatives
+QUALITY_NEG_TAGS = [
+    "worst quality",
+    "low quality",
+    "normal quality",
+    "jpeg artifacts",
+    "lowres",
+    "blurry",
+    "pixelated",
+    "distorted",
+    "low resolution",
+]
+
+# Anatomy and Body Negatives
+ANATOMY_NEG_TAGS = [
+    "bad anatomy",
+    "bad hands",
+    "missing fingers",
+    "extra digit",
+    "fewer digits",
+    "extra limbs",
+    "extra arms",
+    "extra legs",
+    "malformed limbs",
+    "mutated hands",
+    "mutated",
+    "mutilated",
+    "disfigured",
+    "long neck",
+    "gross proportions",
+    "fused fingers",
+    "too many fingers",
+]
+
+# Technical and Artifact Negatives
+TECHNICAL_NEG_TAGS = [
+    "watermark",
+    "signature",
+    "text",
+    "error",
+    "username",
+    "cropped",
+    "out of frame",
+    "border",
+    "caption",
+    "copyright",
+]
+
+# Style and Aesthetic Negatives
+STYLE_NEG_TAGS = [
+    "sketch",
+    "monochrome",
+    "grayscale",
+    "ugly",
+    "duplicate",
+    "morbid",
+    "mutation",
+    "deformed",
+    "censored",
+    "unbalanced colors",
 ]
 
 # Combine all categories
 ALL_CATEGORIES = {
-    "Quality": QUALITY_TAGS,
-    "Lighting": LIGHTING_TAGS,
-    "Composition": COMPOSITION_TAGS,
-    "Style": STYLE_TAGS,
-    "Detail": DETAIL_TAGS,
-    "Aesthetic": AESTHETIC_TAGS,
-    "Motion": MOTION_TAGS,
+    "Pos: Quality": QUALITY_TAGS,
+    "Pos: Composition": COMPOSITION_TAGS,
+    "Pos: Lighting": LIGHTING_TAGS,
+    "Pos: Style": STYLE_TAGS,
+    "Pos: Detail": DETAIL_TAGS,
+    "Pos: Aesthetic": AESTHETIC_TAGS,
+    "Pos: Motion": MOTION_TAGS,
+    "Pos: Poses": POSES_TAGS,
+    "Pos: Expressions": EXPRESSIONS_TAGS,
+    "Neg: Quality": QUALITY_NEG_TAGS,
+    "Neg: Anatomy": ANATOMY_NEG_TAGS,
+    "Neg: Technical": TECHNICAL_NEG_TAGS,
+    "Neg: Style": STYLE_NEG_TAGS,
 }
 
 
@@ -135,6 +271,19 @@ def get_preset_tags(category="All", default_active=True, default_strength=None):
     Returns:
         List of tag dictionaries with text, active, strength, and category
     """
+    # Map legacy names to new names
+    legacy_map = {
+        "Quality": "Pos: Quality",
+        "Lighting": "Pos: Lighting",
+        "Composition": "Pos: Composition",
+        "Style": "Pos: Style",
+        "Detail": "Pos: Detail",
+        "Aesthetic": "Pos: Aesthetic",
+        "Motion": "Pos: Motion"
+    }
+    if category in legacy_map:
+        category = legacy_map[category]
+
     tags = []
     
     if category == "All":
@@ -147,6 +296,18 @@ def get_preset_tags(category="All", default_active=True, default_strength=None):
                     "category": cat_name,
                     "highlighted": False,
                 })
+    elif category == "Initial":
+        # Default load: Quality and Composition
+        for cat in ["Pos: Quality", "Pos: Composition"]:
+            if cat in ALL_CATEGORIES:
+                for tag in ALL_CATEGORIES[cat]:
+                    tags.append({
+                        "text": tag,
+                        "active": default_active,
+                        "strength": default_strength,
+                        "category": cat,
+                        "highlighted": False,
+                    })
     elif category in ALL_CATEGORIES:
         for tag in ALL_CATEGORIES[category]:
             tags.append({
@@ -161,8 +322,9 @@ def get_preset_tags(category="All", default_active=True, default_strength=None):
 
 
 def get_category_names():
-    """Get list of all category names plus 'All'."""
-    return ["All"] + list(ALL_CATEGORIES.keys())
+    """Get list of all category names plus 'All' and 'Initial'."""
+    legacy_names = ["Quality", "Lighting", "Composition", "Style", "Detail", "Aesthetic", "Motion"]
+    return ["Initial", "All"] + list(ALL_CATEGORIES.keys()) + legacy_names
 
 
 def merge_tags(preset_tags, incoming_tags, merge_strategy="keep_both"):
