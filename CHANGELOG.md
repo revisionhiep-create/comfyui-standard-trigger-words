@@ -1,6 +1,16 @@
 # Standard Trigger Words Loader - Change Log
 
-## [1.0.0] - 2024-12-16
+## [1.0.3] - 2025-12-21
+
+### Fixed
+- Fixed "disappearing buttons" bug caused by race conditions during node initialization.
+- Added robust state synchronization between hidden serialization widget and UI widget.
+- Added `onConfigure` hook to ensure tags are correctly restored when loading workflows.
+- Fixed backend crash (TypeError) when strength value is missing or null.
+- Improved tag consistency between Python backend and JavaScript frontend.
+- Added defensive JSON parsing and fallback mechanisms to prevent node execution errors.
+
+## [1.0.2] - 2024-12-19
 
 ### Added
 - Initial release of Standard Trigger Words Loader

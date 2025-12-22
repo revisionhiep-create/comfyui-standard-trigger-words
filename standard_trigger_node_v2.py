@@ -130,13 +130,18 @@ class StandardTriggerWordsLoader:
             for tag in tags_list:
                 if isinstance(tag, dict) and tag.get("active", False):
                     text = tag.get("text", "")
-                    strength = tag.get("strength", 1.0)
+                    # Ensure strength is a valid float, default to 1.0
+                    try:
+                        strength = float(tag.get("strength", 1.0))
+                    except (TypeError, ValueError):
+                        strength = 1.0
                     
                     # Apply strength formatting if enabled and strength != 1.0
-                    if allow_strength_adjustment and strength != 1.0:
+                    if allow_strength_adjustment and abs(strength - 1.0) > 0.001:
                         text = f"({text}:{strength:.2f})"
                     
-                    active_tags.append(text)
+                    if text:
+                        active_tags.append(text)
 
             # Get lora syntax (e.g., <lora:name:strength>)
             lora_syntax = kwargs.get("lora_syntax", "")

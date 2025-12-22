@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-standard-trigger-words"
-description = "Rare startup button bug fix for the js file attempt 3"
-version = "1.0.3"
+description = "Fixed rare disappearing buttons bug and backend execution errors"
+version = "1.0.4"
 license = {text = "MIT"}
 dependencies = []
 
@@ -10,5 +10,5 @@ Repository = "https://github.com/revisionhiep-create/comfyui-standard-trigger-wo
 
 [tool.comfy]
 PublisherId = "revybevy"
-DisplayName = "comfyui-standard-trigger-words"
+DisplayName = "Scomfyui-standard-trigger-words"
 Icon = ""
