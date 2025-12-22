@@ -2,6 +2,8 @@
 
 **Interactive, two-column trigger word manager for SDXL Illustrious/Pony models in ComfyUI**
 
+> ⚠️ **Note:** This node currently only works with **LoraManager** nodes. It does not output in standard string format, making it "not node friendly" for standard prompt nodes without LoraManager integration.
+
 ![Version](https://img.shields.io/badge/version-2.0.0-blue)
 ![ComfyUI](https://img.shields.io/badge/ComfyUI-Custom%20Node-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
