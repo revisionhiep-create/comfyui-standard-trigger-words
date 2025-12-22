@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-standard-trigger-words"
 description = "Rare startup button bug fix for the js file attempt 3"
-version = "1.0.4"
+version = "1.0.5"
 license = {text = "MIT"}
 dependencies = []
 
