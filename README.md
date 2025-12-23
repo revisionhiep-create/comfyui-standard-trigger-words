@@ -2,7 +2,7 @@
 
 **Interactive, two-column trigger word manager for SDXL Illustrious/Pony models in ComfyUI**
 
-> ⚠️ **Note:** This node currently only works with [**LoraManager**](https://github.com/willmiao/ComfyUI-Lora-Manager) nodes. It does not output in standard string format, making it "not node friendly" for standard prompt nodes without [**LoraManager**](https://github.com/willmiao/ComfyUI-Lora-Manager) integration.
+
 
 ![Version](https://img.shields.io/badge/version-2.0.0-blue)
 ![ComfyUI](https://img.shields.io/badge/ComfyUI-Custom%20Node-green)
@@ -19,7 +19,8 @@
 - **Inline Tag Management** - Add tags instantly within any category, double-click to edit, and "×" to remove.
 - **Nuclear Scrubbing** - Advanced prompt cleaning ensures no technical metadata leaks into your images.
 - **Robust Workflow Sync** - Remembers your category selections and tag states across sessions.
-- **Works with [Lora Manager](https://github.com/willmiao/ComfyUI-Lora-Manager)** - Integrates seamlessly with existing workflows
+- **Works with [Lora Manager](https://github.com/willmiao/ComfyUI-Lora-Manager)** - Integrates seamlessly with existing workflows.
+- **Works with Text Concatenate Node, example workflow in repo.
 
 ---
 
