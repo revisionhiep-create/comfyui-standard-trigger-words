@@ -45,7 +45,7 @@
    ```
 3. **Restart ComfyUI**
 
-![Project screenshot](.infograph.png)
+![Project screenshot](Infograph.png)
 
 ---
 
