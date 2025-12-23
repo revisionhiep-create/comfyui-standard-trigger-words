@@ -1,5 +1,27 @@
 # Standard Trigger Words Loader - Change Log
 
+## [2.0.0] - 2025-12-22
+
+### Added
+- **Major UI/UX Overhaul**: Modern two-column grid layout inspired by EreNodes/Prompt Toggle for faster tag selection.
+- **Negative Categories**: Added dedicated sections for Negative Quality, Anatomy, Technical, and Style tags.
+- **New Tag Categories**: Integrated "Poses" and "Expressions" with 30+ new specialized trigger words.
+- **Multi-Category Management**: Implemented a "☰ Categories" menu to toggle and display multiple tag groups at once.
+- **Responsive Design**: Improved grid layout that intelligently uses the full width of the node frame when stretched.
+- **Default State**: All buttons now default to "OFF" to allow building prompts from scratch.
+- **Inline Tag Management**: Added "+" buttons per category for new tags, double-click to edit text, and "×" buttons for quick removal.
+- **Nuclear Scrubbing**: Advanced safety filter to prevent any internal JSON metadata or technical keywords from leaking into the final prompt.
+
+### Fixed
+- **Workflow Persistence**: Resolved "Value not in list" errors and "funky link" issues when loading legacy workflows.
+- **Data Leakage**: Fixed "weird text" (like 'strength' or 'active') appearing in generated images via aggressive prompt cleaning.
+- **UI Responsiveness**: Fixed non-functional "Add word" buttons and ensured the UI updates correctly across all categories.
+- **Hidden Widget Sync**: Implemented a robust polling sync engine to ensure the custom UI and hidden serialization widgets are always in lockstep.
+
+### Changed
+- Moved `preset_category` and `allow_strength_adjustment` to optional/hidden to reduce UI clutter while maintaining compatibility.
+- Updated `pyproject.toml` and `README.md` to reflect the V2 overhaul.
+
 ## [1.0.3] - 2025-12-21
 
 ### Fixed
@@ -68,26 +90,15 @@ Standard_trigger_words_loader/
 
 ## Future Plans
 
-### v1.1.0 (Planned)
+### v2.1.0 (Planned)
 - [ ] Import/Export custom preset collections
 - [ ] Preset search functionality
 - [ ] Drag-and-drop tag reordering
-- [ ] Tag categorization in UI
 - [ ] Undo/Redo support
-
-### v1.2.0 (Planned)
 - [ ] Custom tag groups
 - [ ] Preset templates
 - [ ] Tag usage statistics
-- [ ] Negative prompt presets
 - [ ] Multi-language support
-
-### v2.0.0 (Planned)
-- [ ] AI-powered tag suggestions
-- [ ] Tag conflict detection
-- [ ] Advanced tag filtering
-- [ ] Preset marketplace integration
-- [ ] Workflow templates
 
 ---
 
