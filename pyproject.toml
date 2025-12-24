@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-standard-trigger-words"
-description = "Added remove and edit category in the UI"
-version = "2.1.1"
+description = "Workflows added to templates for users"
+version = "2.1.2"
 license = {text = "MIT"}
 dependencies = []
 
