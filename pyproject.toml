@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-standard-trigger-words"
 description = "Interactive button-based trigger word manager with precision weighting and portable collections."
-version = "2.4.1"
+version = "2.4.2"
 license = {text = "MIT"}
 dependencies = []
 
@@ -11,4 +11,4 @@ Repository = "https://github.com/revisionhiep-create/comfyui-standard-trigger-wo
 [tool.comfy]
 PublisherId = "revybevy"
 DisplayName = "Standard Trigger Words 📝"
-Icon = ""
+Icon = "https://raw.githubusercontent.com/revisionhiep-create/comfyui-standard-trigger-words/refs/heads/main/Node%20Icon.png"
