@@ -110,6 +110,7 @@ function createTagsWidget(node, name, opts = {}) {
         const existingMenu = document.getElementById("standard-trigger-category-menu");
         if (existingMenu) {
             document.body.removeChild(existingMenu);
+            window.removeEventListener("wheel", closeMenuOnScroll);
             return;
         }
 
@@ -121,6 +122,15 @@ function createTagsWidget(node, name, opts = {}) {
             backgroundColor: "#2c2c2e", border: "1px solid #3a3a3c", borderRadius: "8px",
             boxShadow: "0 8px 16px rgba(0,0,0,0.4)", zIndex: "1000", padding: "6px", minWidth: "180px"
         });
+
+        // Close menu if user zooms or pans the canvas
+        const closeMenuOnScroll = (ev) => {
+            if (document.body.contains(menu)) {
+                document.body.removeChild(menu);
+            }
+            window.removeEventListener("wheel", closeMenuOnScroll);
+        };
+        window.addEventListener("wheel", closeMenuOnScroll, { passive: true });
 
         const allCategories = [...Object.keys(TRIGGER_WORD_PRESETS), ...(widget.value.customCategories || [])];
 
@@ -318,7 +328,13 @@ function createTagsWidget(node, name, opts = {}) {
         toolContainer.appendChild(exportBtn);
         menu.appendChild(toolContainer);
 
-        const closeMenu = (ev) => { if (document.body.contains(menu) && !menu.contains(ev.target)) { document.body.removeChild(menu); window.removeEventListener("click", closeMenu); } };
+        const closeMenu = (ev) => { 
+            if (document.body.contains(menu) && !menu.contains(ev.target) && ev.target !== menuBtn) { 
+                document.body.removeChild(menu); 
+                window.removeEventListener("click", closeMenu); 
+                window.removeEventListener("wheel", closeMenuOnScroll);
+            } 
+        };
         setTimeout(() => {
             window.addEventListener("click", closeMenu);
             addCatInput.focus();
