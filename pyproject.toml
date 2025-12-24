@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-standard-trigger-words"
-description = "Updated Icon Image for node registry"
-version = "2.1.3"
+description = "Updated Icon Image for node registry v2"
+version = "2.1.4"
 license = {text = "MIT"}
 dependencies = []
 
