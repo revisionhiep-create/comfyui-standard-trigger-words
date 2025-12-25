@@ -1,5 +1,13 @@
 # Standard Trigger Words Loader - Change Log
 
+## [2.4.3] - 2025-12-24
+
+### Fixed
+- **Pinning Stability**: Fixed a bug where pinning a node would break the UI layout after reloading a workflow. The widget now dynamically respects the pinned node's locked dimensions.
+- **Workflow Reload Logic**: Hardened the `onConfigure` hook to be non-destructive, ensuring perfect state restoration even in complex or multi-node environments.
+- **Initial Sizing**: Improved the initialization sequence to better detect and respect saved node dimensions during load.
+
+
 ## [2.4.0] - 2025-12-24
 
 ### Added
