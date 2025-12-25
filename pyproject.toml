@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-standard-trigger-words"
 description = "Interactive button-based trigger word manager with precision weighting and portable collections."
-version = "2.4.2"
+version = "2.4.3"
 license = {text = "MIT"}
 dependencies = []
 
