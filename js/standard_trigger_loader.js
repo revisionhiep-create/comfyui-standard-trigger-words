@@ -79,7 +79,14 @@ function createTagsWidget(node, name, opts = {}) {
             strengthEnabled: false
         },
         draw: function(ctx, node, widgetWidth, y, widgetHeight) {},
-        computeSize: function(width) { return [width, Math.max(400, node.size[1] - 150)]; },
+        computeSize: function(width) { 
+            // Robust size calculation, especially for pinned nodes
+            const nodeHeight = (node.size && node.size[1]) ? node.size[1] : 700;
+            const preferredHeight = nodeHeight - 100;
+            // If pinned, we allow it to be smaller to avoid breaking the layout
+            const minHeight = node.flags?.pinned ? 100 : 400;
+            return [width || 750, Math.max(minHeight, preferredHeight)]; 
+        },
         serializeValue: function() { return JSON.stringify(this.value); },
         get value() { return this._value; },
         set value(v) { 
@@ -110,7 +117,6 @@ function createTagsWidget(node, name, opts = {}) {
         const existingMenu = document.getElementById("standard-trigger-category-menu");
         if (existingMenu) {
             document.body.removeChild(existingMenu);
-            window.removeEventListener("wheel", closeMenuOnScroll);
             return;
         }
 
@@ -122,15 +128,6 @@ function createTagsWidget(node, name, opts = {}) {
             backgroundColor: "#2c2c2e", border: "1px solid #3a3a3c", borderRadius: "8px",
             boxShadow: "0 8px 16px rgba(0,0,0,0.4)", zIndex: "1000", padding: "6px", minWidth: "180px"
         });
-
-        // Close menu if user zooms or pans the canvas
-        const closeMenuOnScroll = (ev) => {
-            if (document.body.contains(menu)) {
-                document.body.removeChild(menu);
-            }
-            window.removeEventListener("wheel", closeMenuOnScroll);
-        };
-        window.addEventListener("wheel", closeMenuOnScroll, { passive: true });
 
         const allCategories = [...Object.keys(TRIGGER_WORD_PRESETS), ...(widget.value.customCategories || [])];
 
@@ -265,7 +262,7 @@ function createTagsWidget(node, name, opts = {}) {
         exportBtn.onclick = (ev) => {
             ev.stopPropagation();
             const data = {
-                version: "2.4.0",
+                version: "2.4.1",
                 customCategories: widget.value.customCategories || [],
                 tags: widget.value.tags.filter(t => (widget.value.customCategories || []).includes(t.category))
             };
@@ -328,13 +325,7 @@ function createTagsWidget(node, name, opts = {}) {
         toolContainer.appendChild(exportBtn);
         menu.appendChild(toolContainer);
 
-        const closeMenu = (ev) => { 
-            if (document.body.contains(menu) && !menu.contains(ev.target) && ev.target !== menuBtn) { 
-                document.body.removeChild(menu); 
-                window.removeEventListener("click", closeMenu); 
-                window.removeEventListener("wheel", closeMenuOnScroll);
-            } 
-        };
+        const closeMenu = (ev) => { if (document.body.contains(menu) && !menu.contains(ev.target)) { document.body.removeChild(menu); window.removeEventListener("click", closeMenu); } };
         setTimeout(() => {
             window.addEventListener("click", closeMenu);
             addCatInput.focus();
@@ -701,7 +692,7 @@ app.registerExtension({
                 };
 
                 // Robust initial load
-                fetchPresets(); // Ensure we have presets before loading state
+                fetchPresets(); 
                 if (modifyTagsWidget.value) {
                     updateFromHidden();
                 } else {
@@ -719,18 +710,32 @@ app.registerExtension({
                     };
                 }
 
-                node.setSize([750, 700]);
+                // Initial size setup - only if not already set by loader
+                if (!node.size || (node.size[0] < 100 && node.size[1] < 100)) {
+                    node.setSize([750, 700]);
+                }
+                
                 return r;
             };
 
-            // Hook into ComfyUI's configuration system
-            nodeType.prototype.onConfigure = function() {
-                const modifyTagsWidget = this.widgets.find(w => w.name === "modify_tags");
-                const tagsWidget = this.widgets.find(w => w.name === "trigger_words_display");
+            // Hook into ComfyUI's configuration system (restoring from workflow)
+            const onConfigure = nodeType.prototype.onConfigure;
+            nodeType.prototype.onConfigure = function(config) {
+                if (onConfigure) onConfigure.apply(this, arguments);
+                
+                const modifyTagsWidget = this.widgets?.find(w => w.name === "modify_tags");
+                const tagsWidget = this.widgets?.find(w => w.name === "trigger_words_display");
+                
                 if (modifyTagsWidget?.value && tagsWidget) {
                     try {
-                        tagsWidget.value = JSON.parse(modifyTagsWidget.value);
-                    } catch (e) {}
+                        const data = JSON.parse(modifyTagsWidget.value);
+                        // Only sync if the value actually differs to avoid redundant re-renders
+                        if (JSON.stringify(tagsWidget.value) !== JSON.stringify(data)) {
+                            tagsWidget.value = data;
+                        }
+                    } catch (e) {
+                        console.error("StandardTriggerWords: Error restoring state in onConfigure", e);
+                    }
                 }
             };
         }
