@@ -4,8 +4,27 @@
 
 import { app } from "../../scripts/app.js";
 
+// Inject styles to prevent drag flickering and ensure pointer cursor
+const style = document.createElement('style');
+style.textContent = `
+    .trigger-dragging .trigger-category-header > * {
+        pointer-events: none !important;
+    }
+    .trigger-category-header {
+        transition: border-top 0.1s ease;
+        cursor: pointer !important;
+    }
+    .trigger-category-header:active {
+        cursor: pointer !important;
+    }
+`;
+document.head.appendChild(style);
+
 // Global presets, initially empty, will be populated from Python
 let TRIGGER_WORD_PRESETS = {};
+
+// Track current drag state
+let currentDraggedCategory = null;
 
 function getWheelSensitivity() {
     return parseFloat(app.ui.settings.getSettingValue("AegisFlow.WheelScrollSpeed", 0.02)) || 0.02;
@@ -76,7 +95,8 @@ function createTagsWidget(node, name, opts = {}) {
             tags: [], 
             activeCategories: ["Pos: Quality", "Pos: Composition"],
             customCategories: [],
-            strengthEnabled: false
+            strengthEnabled: false,
+            collapsedCategories: []
         },
         draw: function(ctx, node, widgetWidth, y, widgetHeight) {},
         computeSize: function(width) { 
@@ -94,6 +114,7 @@ function createTagsWidget(node, name, opts = {}) {
                 this._value.tags = v;
             } else if (v && typeof v === 'object') {
                 this._value = v;
+                if (!this._value.collapsedCategories) this._value.collapsedCategories = [];
             }
             renderAll(); 
             const modWidget = node.widgets.find(w => w.name === "modify_tags");
@@ -185,6 +206,11 @@ function createTagsWidget(node, name, opts = {}) {
                     newValue.activeCategories = newValue.activeCategories.filter(c => c !== cat);
                 } else {
                     newValue.activeCategories.push(cat);
+                    
+                    if (newValue.collapsedCategories && newValue.collapsedCategories.includes(cat)) {
+                        newValue.collapsedCategories = newValue.collapsedCategories.filter(c => c !== cat);
+                    }
+
                     // Add presets if available and not already present
                     (TRIGGER_WORD_PRESETS[cat] || []).forEach(text => {
                         if (!newValue.tags.find(t => t.text === text && t.category === cat)) {
@@ -356,15 +382,115 @@ function createTagsWidget(node, name, opts = {}) {
         strModeBtn.style.border = widget.value.strengthEnabled ? "1px solid #30d158" : "none"; // Subtle green border for active
 
         widget.value.activeCategories.forEach(catName => {
+            const isCollapsed = widget.value.collapsedCategories && widget.value.collapsedCategories.includes(catName);
+
             const section = document.createElement("div");
             Object.assign(section.style, { display: "flex", flexDirection: "column", gap: "6px", width: "100%" });
 
             const secHeader = document.createElement("div");
-            Object.assign(secHeader.style, { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px", width: "100%" });
+            secHeader.className = "trigger-category-header";
+            
+            Object.assign(secHeader.style, { 
+                display: "flex", justifyContent: "space-between", alignItems: "center", 
+                padding: "4px", width: "100%", borderRadius: "4px",
+                userSelect: "none", backgroundColor: "transparent",
+                borderTop: "2px solid transparent"
+            });
+
+            // Drag handlers
+            secHeader.draggable = true;
+            
+            secHeader.ondragstart = (e) => {
+                currentDraggedCategory = catName;
+                e.dataTransfer.setData("text/plain", catName);
+                e.dataTransfer.effectAllowed = "move";
+                secHeader.style.opacity = "0.5";
+                contentArea.classList.add('trigger-dragging');
+            };
+
+            secHeader.ondragend = () => {
+                currentDraggedCategory = null;
+                secHeader.style.opacity = "1";
+                contentArea.classList.remove('trigger-dragging');
+                
+                contentArea.querySelectorAll('.trigger-category-header').forEach(el => {
+                    el.style.borderTop = "2px solid transparent";
+                });
+            };
+
+            secHeader.ondragover = (e) => {
+                e.preventDefault(); 
+                e.dataTransfer.dropEffect = "move";
+                if (currentDraggedCategory && currentDraggedCategory !== catName) {
+                    secHeader.style.borderTop = "2px solid #30d158";
+                }
+            };
+
+            secHeader.ondragleave = () => {
+                secHeader.style.borderTop = "2px solid transparent";
+            };
+
+            secHeader.ondrop = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                secHeader.style.borderTop = "2px solid transparent";
+                
+                const fromCat = e.dataTransfer.getData("text/plain");
+                const toCat = catName;
+
+                if (fromCat && fromCat !== toCat) {
+                    const newOrder = [...widget.value.activeCategories];
+                    const fromIdx = newOrder.indexOf(fromCat);
+                    const toIdx = newOrder.indexOf(toCat);
+                    
+                    if (fromIdx > -1 && toIdx > -1) {
+                        newOrder.splice(fromIdx, 1);
+                        newOrder.splice(toIdx, 0, fromCat);
+                        widget.value = { ...widget.value, activeCategories: newOrder };
+                        node.setDirtyCanvas(true, false);
+                    }
+                }
+            };
+            
+            secHeader.onmouseover = () => {
+                if (!currentDraggedCategory) secHeader.style.backgroundColor = "rgba(255,255,255,0.05)";
+            };
+            secHeader.onmouseout = () => secHeader.style.backgroundColor = "transparent";
+
+            secHeader.onclick = (e) => {
+                if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON") return;
+                
+                const newValue = { ...widget.value };
+                if (!newValue.collapsedCategories) newValue.collapsedCategories = [];
+                
+                if (isCollapsed) {
+                    newValue.collapsedCategories = newValue.collapsedCategories.filter(c => c !== catName);
+                } else {
+                    newValue.collapsedCategories.push(catName);
+                }
+                widget.value = newValue;
+                node.setDirtyCanvas(true, false);
+            };
+
+            const titleGroup = document.createElement("div");
+            Object.assign(titleGroup.style, { display: "flex", alignItems: "center", gap: "6px" });
+
+            const arrow = document.createElement("div");
+            arrow.textContent = isCollapsed ? "▶" : "▼";
+            Object.assign(arrow.style, { 
+                fontSize: "10px", color: "#8e8e93", width: "12px", 
+                textAlign: "center", cursor: "pointer" 
+            });
+            
+            arrow.onmousedown = (e) => { e.stopPropagation(); };
+
             const secTitle = document.createElement("div");
             secTitle.textContent = catName;
             Object.assign(secTitle.style, { fontSize: "11px", fontWeight: "bold", color: catName.startsWith("Neg") ? "#ff453a" : "#30d158", opacity: "0.8" });
             
+            titleGroup.appendChild(arrow);
+            titleGroup.appendChild(secTitle);
+
             const addRow = document.createElement("div");
             Object.assign(addRow.style, { display: "flex", gap: "4px", flexGrow: "1", marginLeft: "10px" });
             
@@ -387,190 +513,209 @@ function createTagsWidget(node, name, opts = {}) {
                 if (text) {
                     const newValue = { ...widget.value };
                     newValue.tags = [...newValue.tags, { text, active: false, strength: 1.0, category: catName }];
+                    if (newValue.collapsedCategories && newValue.collapsedCategories.includes(catName)) {
+                         newValue.collapsedCategories = newValue.collapsedCategories.filter(c => c !== catName);
+                    }
                     widget.value = newValue;
                     addInput.value = "";
                     node.setDirtyCanvas(true, false);
                 }
             };
             addBtn.onclick = (e) => { e.stopPropagation(); performAdd(); };
+            
+            // Prevent drag propagation on inputs
+            addInput.onmousedown = (e) => { e.stopPropagation(); };
+            addBtn.onmousedown = (e) => { e.stopPropagation(); };
+            addInput.onclick = (e) => { e.stopPropagation(); };
             addInput.onkeydown = (e) => { if (e.key === "Enter") { e.stopPropagation(); performAdd(); } };
 
             addRow.appendChild(addInput);
             addRow.appendChild(addBtn);
-            secHeader.appendChild(secTitle);
+
+            secHeader.appendChild(titleGroup);
             secHeader.appendChild(addRow);
             section.appendChild(secHeader);
 
-            const grid = document.createElement("div");
-            Object.assign(grid.style, { 
-                display: "grid", 
-                gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", 
-                gap: "8px", 
-                width: "100%" 
-            });
-
-            const tagsInCat = widget.value.tags.filter(t => t.category === catName);
-            tagsInCat.forEach(tagData => {
-                const item = document.createElement("div");
-                Object.assign(item.style, {
-                    display: "flex", flexDirection: "column", gap: "4px", padding: "6px 8px",
-                    backgroundColor: "#121214", borderRadius: "6px", border: "1px solid #2a2a2c", minWidth: "0", width: "100%", boxSizing: "border-box"
+            if (!isCollapsed) {
+                const grid = document.createElement("div");
+                Object.assign(grid.style, { 
+                    display: "grid", 
+                    gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", 
+                    gap: "8px", 
+                    width: "100%" 
                 });
 
-                const topRow = document.createElement("div");
-                Object.assign(topRow.style, { display: "flex", alignItems: "center", gap: "6px", width: "100%" });
-
-                const toggle = document.createElement("div");
-                Object.assign(toggle.style, {
-                    width: "28px", height: "16px",
-                    backgroundColor: tagData.active ? (catName.startsWith("Neg") ? "#ff453a" : "#30d158") : "#48484a",
-                    borderRadius: "10px", position: "relative", cursor: "pointer", transition: "0.2s", flexShrink: "0"
-                });
-                const knob = document.createElement("div");
-                Object.assign(knob.style, { width: "12px", height: "12px", backgroundColor: "white", borderRadius: "50%", position: "absolute", top: "2px", left: tagData.active ? "14px" : "2px", transition: "0.2s" });
-                toggle.appendChild(knob);
-
-                const label = document.createElement("span");
-                label.textContent = tagData.text;
-                Object.assign(label.style, { fontSize: "11px", color: tagData.active ? "#ffffff" : "#8e8e93", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: "pointer", flexGrow: "1", minWidth: "0" });
-
-                const handleToggle = (e) => { 
-                    e.stopPropagation(); 
-                    widget.value = { ...widget.value, tags: widget.value.tags.map(t => {
-                        if (t === tagData) {
-                            const newActive = !t.active;
-                            // Reset strength to 1.0 when turning OFF
-                            return { ...t, active: newActive, strength: newActive ? t.strength : 1.0 };
-                        }
-                        return t;
-                    }) };
-                    node.setDirtyCanvas(true, false); 
-                };
-                toggle.onclick = handleToggle;
-                label.onclick = handleToggle;
-
-                label.ondblclick = (e) => {
-                    e.stopPropagation();
-                    const input = document.createElement("input");
-                    input.value = tagData.text;
-                    Object.assign(input.style, {
-                        width: "100%", fontSize: "11px", backgroundColor: "#1c1c1e", color: "white", border: "none", outline: "none"
+                const tagsInCat = widget.value.tags.filter(t => t.category === catName);
+                tagsInCat.forEach(tagData => {
+                    const item = document.createElement("div");
+                    Object.assign(item.style, {
+                        display: "flex", flexDirection: "column", gap: "4px", padding: "6px 8px",
+                        backgroundColor: "#121214", borderRadius: "6px", border: "1px solid #2a2a2c", minWidth: "0", width: "100%", boxSizing: "border-box"
                     });
-                    const saveEdit = () => {
-                        if (input.value.trim() && input.value.trim() !== tagData.text) {
-                            widget.value = { ...widget.value, tags: widget.value.tags.map(t => t === tagData ? {...t, text: input.value.trim()} : t) };
-                        } else { renderAll(); }
+
+                    const topRow = document.createElement("div");
+                    Object.assign(topRow.style, { display: "flex", alignItems: "center", gap: "6px", width: "100%" });
+
+                    const toggle = document.createElement("div");
+                    Object.assign(toggle.style, {
+                        width: "28px", height: "16px",
+                        backgroundColor: tagData.active ? (catName.startsWith("Neg") ? "#ff453a" : "#30d158") : "#48484a",
+                        borderRadius: "10px", position: "relative", cursor: "pointer", transition: "0.2s", flexShrink: "0"
+                    });
+                    const knob = document.createElement("div");
+                    Object.assign(knob.style, { width: "12px", height: "12px", backgroundColor: "white", borderRadius: "50%", position: "absolute", top: "2px", left: tagData.active ? "14px" : "2px", transition: "0.2s" });
+                    toggle.appendChild(knob);
+
+                    const label = document.createElement("span");
+                    label.textContent = tagData.text;
+                    Object.assign(label.style, { fontSize: "11px", color: tagData.active ? "#ffffff" : "#8e8e93", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: "pointer", flexGrow: "1", minWidth: "0" });
+
+                    const handleToggle = (e) => { 
+                        e.stopPropagation(); 
+                        widget.value = { ...widget.value, tags: widget.value.tags.map(t => {
+                            if (t === tagData) {
+                                const newActive = !t.active;
+                                // Reset strength to 1.0 when turning OFF
+                                return { ...t, active: newActive, strength: newActive ? t.strength : 1.0 };
+                            }
+                            return t;
+                        }) };
+                        node.setDirtyCanvas(true, false); 
                     };
-                    input.onblur = saveEdit;
-                    input.onkeydown = (ev) => { if (ev.key === "Enter") saveEdit(); };
-                    label.textContent = "";
-                    label.appendChild(input);
-                    input.focus();
-                };
+                    toggle.onclick = handleToggle;
+                    label.onclick = handleToggle;
 
-                const delBtn = document.createElement("div");
-                delBtn.textContent = "×";
-                Object.assign(delBtn.style, { color: "#ff453a", cursor: "pointer", padding: "0 4px", fontSize: "14px", fontWeight: "bold", opacity: "0.4" });
-                delBtn.onmouseover = () => delBtn.style.opacity = "1";
-                delBtn.onmouseout = () => delBtn.style.opacity = "0.4";
-                delBtn.onclick = (e) => { 
-                    e.stopPropagation(); 
-                    widget.value = { ...widget.value, tags: widget.value.tags.filter(t => t !== tagData) };
-                };
-
-                topRow.appendChild(toggle);
-                topRow.appendChild(label);
-                topRow.appendChild(delBtn);
-                item.appendChild(topRow);
-
-                if (widget.value.strengthEnabled) {
-                    const sliderRow = document.createElement("div");
-                    Object.assign(sliderRow.style, { display: "flex", alignItems: "center", gap: "6px", width: "100%" });
-                    
-                    const slider = document.createElement("input");
-                    slider.type = "range";
-                    slider.min = "0";
-                    slider.max = "2";
-                    slider.step = "0.05";
-                    slider.value = tagData.strength || 1.0;
-                    Object.assign(slider.style, { flexGrow: "1", height: "4px", cursor: "pointer", accentColor: "#5a5a5e" });
-                    
-                    const valLabel = document.createElement("span");
-                    valLabel.textContent = parseFloat(slider.value).toFixed(2);
-                    Object.assign(valLabel.style, { fontSize: "9px", opacity: "0.6", minWidth: "25px", textAlign: "right", cursor: "pointer" });
-                    
-                    valLabel.onclick = (e) => {
+                    label.ondblclick = (e) => {
                         e.stopPropagation();
                         const input = document.createElement("input");
-                        input.type = "number";
-                        input.value = tagData.strength || 1.0;
-                        input.step = "0.01";
-                        input.min = "0";
-                        input.max = "2";
+                        input.value = tagData.text;
                         Object.assign(input.style, {
-                            width: "35px", fontSize: "9px", backgroundColor: "#1c1c1e", color: "white", border: "none", outline: "none", textAlign: "right"
+                            width: "100%", fontSize: "11px", backgroundColor: "#1c1c1e", color: "white", border: "none", outline: "none"
                         });
                         
-                        const saveValue = () => {
-                            let val = parseFloat(input.value);
-                            if (isNaN(val)) val = 1.0;
-                            val = Math.max(0, Math.min(2, val));
-                            tagData.strength = val;
-                            slider.value = val;
-                            widget.value = { ...widget.value }; // Sync
+                        input.onmousedown = (ev) => ev.stopPropagation();
+
+                        const saveEdit = () => {
+                            if (input.value.trim() && input.value.trim() !== tagData.text) {
+                                widget.value = { ...widget.value, tags: widget.value.tags.map(t => t === tagData ? {...t, text: input.value.trim()} : t) };
+                            } else { renderAll(); }
                         };
-                        
-                        input.onblur = saveValue;
-                        input.onkeydown = (ev) => { if (ev.key === "Enter") saveValue(); };
-                        
-                        valLabel.textContent = "";
-                        valLabel.appendChild(input);
+                        input.onblur = saveEdit;
+                        input.onkeydown = (ev) => { if (ev.key === "Enter") saveEdit(); };
+                        label.textContent = "";
+                        label.appendChild(input);
                         input.focus();
-                        input.select();
                     };
 
-                    slider.oninput = (e) => {
-                        const val = parseFloat(e.target.value);
-                        valLabel.textContent = val.toFixed(2);
-                        // Update value silently to prevent full re-render on every slider move
-                        tagData.strength = val;
-                        // Mark modified for serialization
-                        const modWidget = node.widgets.find(w => w.name === "modify_tags");
-                        if (modWidget) {
-                            modWidget.value = JSON.stringify(widget.value);
-                        }
-                    };
-                    
-                    slider.onchange = () => {
-                        widget.value = { ...widget.value }; // Trigger full update/sync on release
+                    const delBtn = document.createElement("div");
+                    delBtn.textContent = "×";
+                    Object.assign(delBtn.style, { color: "#ff453a", cursor: "pointer", padding: "0 4px", fontSize: "14px", fontWeight: "bold", opacity: "0.4" });
+                    delBtn.onmouseover = () => delBtn.style.opacity = "1";
+                    delBtn.onmouseout = () => delBtn.style.opacity = "0.4";
+                    delBtn.onclick = (e) => { 
+                        e.stopPropagation(); 
+                        widget.value = { ...widget.value, tags: widget.value.tags.filter(t => t !== tagData) };
                     };
 
-                    sliderRow.appendChild(slider);
-                    sliderRow.appendChild(valLabel);
-                    item.appendChild(sliderRow);
-                }
+                    topRow.appendChild(toggle);
+                    topRow.appendChild(label);
+                    topRow.appendChild(delBtn);
+                    item.appendChild(topRow);
 
-                grid.appendChild(item);
-
-                item.addEventListener("wheel", (e) => {
-                    // Check if strength mode is ON
                     if (widget.value.strengthEnabled) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const sens = getWheelSensitivity();
-                        const delta = e.deltaY < 0 ? sens : -sens;
-                        const newStrength = Math.max(0, Math.min(2, (tagData.strength || 1.0) + delta));
+                        const sliderRow = document.createElement("div");
+                        Object.assign(sliderRow.style, { display: "flex", alignItems: "center", gap: "6px", width: "100%" });
                         
-                        widget.value = { 
-                            ...widget.value, 
-                            tags: widget.value.tags.map(t => t === tagData ? {...t, strength: newStrength} : t) 
-                        };
-                        node.setDirtyCanvas(true, false);
-                    }
-                }, { passive: false });
-            });
+                        const slider = document.createElement("input");
+                        slider.type = "range";
+                        slider.min = "0";
+                        slider.max = "2";
+                        slider.step = "0.05";
+                        slider.value = tagData.strength || 1.0;
+                        Object.assign(slider.style, { flexGrow: "1", height: "4px", cursor: "pointer", accentColor: "#5a5a5e" });
+                        
+                        slider.onmousedown = (ev) => ev.stopPropagation();
 
-            section.appendChild(grid);
+                        const valLabel = document.createElement("span");
+                        valLabel.textContent = parseFloat(slider.value).toFixed(2);
+                        Object.assign(valLabel.style, { fontSize: "9px", opacity: "0.6", minWidth: "25px", textAlign: "right", cursor: "pointer" });
+                        
+                        valLabel.onclick = (e) => {
+                            e.stopPropagation();
+                            const input = document.createElement("input");
+                            input.type = "number";
+                            input.value = tagData.strength || 1.0;
+                            input.step = "0.01";
+                            input.min = "0";
+                            input.max = "2";
+                            Object.assign(input.style, {
+                                width: "35px", fontSize: "9px", backgroundColor: "#1c1c1e", color: "white", border: "none", outline: "none", textAlign: "right"
+                            });
+                            
+                            input.onmousedown = (ev) => ev.stopPropagation();
+                            
+                            const saveValue = () => {
+                                let val = parseFloat(input.value);
+                                if (isNaN(val)) val = 1.0;
+                                val = Math.max(0, Math.min(2, val));
+                                tagData.strength = val;
+                                slider.value = val;
+                                widget.value = { ...widget.value }; // Sync
+                            };
+                            
+                            input.onblur = saveValue;
+                            input.onkeydown = (ev) => { if (ev.key === "Enter") saveValue(); };
+                            
+                            valLabel.textContent = "";
+                            valLabel.appendChild(input);
+                            input.focus();
+                            input.select();
+                        };
+
+                        slider.oninput = (e) => {
+                            const val = parseFloat(e.target.value);
+                            valLabel.textContent = val.toFixed(2);
+                            // Update value silently to prevent full re-render on every slider move
+                            tagData.strength = val;
+                            // Mark modified for serialization
+                            const modWidget = node.widgets.find(w => w.name === "modify_tags");
+                            if (modWidget) {
+                                modWidget.value = JSON.stringify(widget.value);
+                            }
+                        };
+                        
+                        slider.onchange = () => {
+                            widget.value = { ...widget.value }; // Trigger full update/sync on release
+                        };
+
+                        sliderRow.appendChild(slider);
+                        sliderRow.appendChild(valLabel);
+                        item.appendChild(sliderRow);
+                    }
+
+                    grid.appendChild(item);
+
+                    item.addEventListener("wheel", (e) => {
+                        // Check if strength mode is ON
+                        if (widget.value.strengthEnabled) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const sens = getWheelSensitivity();
+                            const delta = e.deltaY < 0 ? sens : -sens;
+                            const newStrength = Math.max(0, Math.min(2, (tagData.strength || 1.0) + delta));
+                            
+                            widget.value = { 
+                                ...widget.value, 
+                                tags: widget.value.tags.map(t => t === tagData ? {...t, strength: newStrength} : t) 
+                            };
+                            node.setDirtyCanvas(true, false);
+                        }
+                    }, { passive: false });
+                });
+
+                section.appendChild(grid);
+            }
+
             contentArea.appendChild(section);
         });
     };
@@ -706,7 +851,8 @@ app.registerExtension({
                     tagsWidget.value = { 
                         tags: initialTags, 
                         activeCategories: ["Pos: Quality", "Pos: Composition"],
-                        customCategories: [] 
+                        customCategories: [],
+                        collapsedCategories: []
                     };
                 }
 
