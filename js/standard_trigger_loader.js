@@ -82,6 +82,33 @@ function createTagsWidget(node, name, opts = {}) {
     header.appendChild(batchControls);
     mainContainer.appendChild(header);
 
+    // Search/Filter Box
+    const searchContainer = document.createElement("div");
+    Object.assign(searchContainer.style, {
+        display: "flex", alignItems: "center", gap: "6px", padding: "6px 0", width: "100%"
+    });
+
+    const searchInput = document.createElement("input");
+    searchInput.placeholder = "🔍 Search tags...";
+    searchInput.type = "text";
+    Object.assign(searchInput.style, {
+        flexGrow: "1", backgroundColor: "#1c1c1e", border: "1px solid #3a3a3c", 
+        color: "white", borderRadius: "6px", padding: "6px 10px", fontSize: "11px", 
+        outline: "none"
+    });
+
+    const clearSearchBtn = document.createElement("button");
+    clearSearchBtn.textContent = "×";
+    clearSearchBtn.style.display = "none";
+    Object.assign(clearSearchBtn.style, {
+        backgroundColor: "#3a3a3c", border: "none", color: "white", 
+        borderRadius: "4px", padding: "4px 8px", cursor: "pointer", fontSize: "14px"
+    });
+
+    searchContainer.appendChild(searchInput);
+    searchContainer.appendChild(clearSearchBtn);
+    mainContainer.appendChild(searchContainer);
+
     const contentArea = document.createElement("div");
     Object.assign(contentArea.style, {
         display: "flex", flexDirection: "column", gap: "12px", maxHeight: "1200px", overflowY: "auto", paddingRight: "4px", scrollbarWidth: "thin", width: "100%", flexGrow: "1"
@@ -374,6 +401,22 @@ function createTagsWidget(node, name, opts = {}) {
         node.setDirtyCanvas(true, false);
     };
 
+    // Search functionality
+    let currentSearchQuery = "";
+    
+    searchInput.oninput = (e) => {
+        currentSearchQuery = e.target.value.toLowerCase().trim();
+        clearSearchBtn.style.display = currentSearchQuery ? "block" : "none";
+        renderAll();
+    };
+
+    clearSearchBtn.onclick = () => {
+        searchInput.value = "";
+        currentSearchQuery = "";
+        clearSearchBtn.style.display = "none";
+        renderAll();
+    };
+
     const renderAll = () => {
         while (contentArea.firstChild) contentArea.removeChild(contentArea.firstChild);
 
@@ -546,7 +589,13 @@ function createTagsWidget(node, name, opts = {}) {
                 });
 
                 const tagsInCat = widget.value.tags.filter(t => t.category === catName);
-                tagsInCat.forEach(tagData => {
+                
+                // Apply search filter if active
+                const filteredTags = currentSearchQuery 
+                    ? tagsInCat.filter(t => t.text.toLowerCase().includes(currentSearchQuery))
+                    : tagsInCat;
+                
+                filteredTags.forEach(tagData => {
                     const item = document.createElement("div");
                     Object.assign(item.style, {
                         display: "flex", flexDirection: "column", gap: "4px", padding: "6px 8px",
